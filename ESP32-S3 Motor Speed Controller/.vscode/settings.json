@@ -1,0 +1,27 @@
+{
+  "C_Cpp.intelliSenseEngine": "default",
+  "idf.espIdfPathWin": "d:\\ESP_IDF\\IDF_PATH\\v5.5.1\\esp-idf",
+  "idf.pythonInstallPath": "d:\\ESP_IDF\\IDF_TOOLS_PATH\\tools\\idf-python\\3.11.2\\python.exe",
+  "idf.openOcdConfigs": [
+    "board/esp32s3-builtin.cfg"
+  ],
+  "idf.portWin": "COM13",
+  "idf.toolsPathWin": "d:\\ESP_IDF\\IDF_TOOLS_PATH",
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32s3"
+  },
+  "clangd.path": "d:\\ESP_IDF\\IDF_TOOLS_PATH\\tools\\esp-clang\\esp-19.1.2_20250312\\esp-clang\\bin\\clangd.exe",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=d:\\ESP_IDF\\IDF_TOOLS_PATH\\tools\\xtensa-esp-elf\\esp-14.2.0_20241119\\xtensa-esp-elf\\bin\\xtensa-esp32s3-elf-gcc.exe",
+    "--compile-commands-dir=c:\\Users\\Admin\\motor speed controller\\build"
+  ],
+  "idf.flashType": "UART",
+  "files.associations": {
+    "freertos.h": "c",
+    "gpio.h": "c",
+    "task.h": "c",
+    "semphr.h": "c",
+    "esp_timer.h": "c"
+  }
+}
