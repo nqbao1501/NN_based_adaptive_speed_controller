@@ -296,11 +296,6 @@ void motor_task(void *arg) {
         
         #elif CONTROL_MODE == MODE_COMBINE
 
-        // NOTE: You MUST pass the inputs your FNN was trained on (omega_des, omega_act, u_total_last_raw)
-        // The error and integral_sum inputs in the original function are NOT used by your FNN!
-
-        /* ---------- FNN FEEDFORWARD (u_ff) ---------- */
-        // FNN predicts the required total PWM (0-8192) based on the state.
         u_ff = nn_predict_pwm(
             setpoint,        // omega_des
             current_rpm,     // omega_act
@@ -312,8 +307,7 @@ void motor_task(void *arg) {
         // Standard PI integral calculation
         integral_sum += error_corr * 0.01f;
 
-        // Anti-windup for the PI corrector (optional, but good practice)
-        float PI_LIMIT = 500.0f; // Limit the PI's *maximum* output range (e.g., +/- 500 PWM units)
+        float PI_LIMIT = 500.0f; 
         if (Ki_c * integral_sum > PI_LIMIT) integral_sum = PI_LIMIT / Ki_c;
         if (Ki_c * integral_sum < -PI_LIMIT) integral_sum = -PI_LIMIT / Ki_c;
       
@@ -386,3 +380,4 @@ void app_main(void) {
     xTaskCreate(setpoint_task, "setpoint", 2048, NULL, 7, NULL);
     xTaskCreatePinnedToCore(motor_task, "motor", 4096, NULL, 10, NULL, 1);
 }
+
