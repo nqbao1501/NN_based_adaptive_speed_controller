@@ -11,6 +11,8 @@
 #include "driver/pulse_cnt.h"
 #include "nn_controller.h"
 #include "setpoint_task.h"
+#include "external_setpoint.h"
+#include "web_dashboard.h"
 
 
 //Control mode
@@ -43,7 +45,7 @@ const float GAMMA = 0.0000001f;
 #define ENCODER_PPR 210
 
 volatile int32_t encoder_count = 0;
-
+float current_rpm = 0.0f;
 // ===== UART Settings =====
 #define UART_PORT_NUM  UART_NUM_0
 #define UART_TX_PIN    UART_PIN_NO_CHANGE
@@ -189,8 +191,8 @@ void motor_task(void *arg) {
     // --- PID Control Parameters ---
     const float Kp = 16.0f; 
     const float Ki = 80.0f; 
-    const float Kp_c = 0.5f; 
-    const float Ki_c = 0.2f; 
+    float Kp_c = 0.5f; 
+    float Ki_c = 0.2f; 
     const float Kd = 0.0f;
     float setpoint = 50.0f;
     float prev_setpoint = 0.0f;
@@ -211,7 +213,7 @@ void motor_task(void *arg) {
     // --- Velocity Estimation State Variables ---
     int32_t last_count = 0; // The count from the previous 2ms tick
     int32_t delta_sum = 0;  // Sum of counts over 10ms
-    float current_rpm = 0.0f; // The clean, 10ms-updated RPM value
+  // The clean, 10ms-updated RPM value
     int tick_counter = 0;   // Counter for 5 ticks
 
     // --- Task Timing ---
@@ -276,7 +278,7 @@ void motor_task(void *arg) {
         float I_max = PWM_SAT_MAX - pd;
         float I_min = PWM_SAT_MIN - pd;
 
-        integral_sum += error * 0.01f;
+        integral_sum += error * 0.002f;
         if (setpoint < 1.0f) {
             integral_sum = 0.0f;
             error_prev = 0.0f;
@@ -296,6 +298,11 @@ void motor_task(void *arg) {
         
         #elif CONTROL_MODE == MODE_COMBINE
 
+        // NOTE: You MUST pass the inputs your FNN was trained on (omega_des, omega_act, u_total_last_raw)
+        // The error and integral_sum inputs in the original function are NOT used by your FNN!
+
+        /* ---------- FNN FEEDFORWARD (u_ff) ---------- */
+        // FNN predicts the required total PWM (0-8192) based on the state.
         u_ff = nn_predict_pwm(
             setpoint,        // omega_des
             current_rpm,     // omega_act
@@ -303,11 +310,18 @@ void motor_task(void *arg) {
         );
 
         error_corr = setpoint - current_rpm;
-
+        if (setpoint <= 50) {
+            Kp_c = 1.5f;
+            Ki_c = 1.0f;}
+        else {
+            Kp_c = 0.2f;
+            Ki_c = 0.05f;}
+            
         // Standard PI integral calculation
         integral_sum += error_corr * 0.01f;
 
-        float PI_LIMIT = 500.0f; 
+        // Anti-windup for the PI corrector (optional, but good practice)
+        float PI_LIMIT = 500.0f; // Limit the PI's *maximum* output range (e.g., +/- 500 PWM units)
         if (Ki_c * integral_sum > PI_LIMIT) integral_sum = PI_LIMIT / Ki_c;
         if (Ki_c * integral_sum < -PI_LIMIT) integral_sum = -PI_LIMIT / Ki_c;
       
@@ -321,6 +335,9 @@ void motor_task(void *arg) {
         else if (setpoint < 50.0f) {
             alpha = alpha * 0.999f + 1.0f * 0.001f;
         }
+        if (alpha > alpha_max) alpha = alpha_max;
+        if (alpha < alpha_min) alpha = alpha_min; 
+
         float u = alpha * u_ff + u_pi;
 
         // absolute saturation
@@ -374,10 +391,10 @@ void app_main(void) {
     uart_init();
     motor_pwm_init();
     encoder_init();
-
+    external_setpoint_init();
+    web_dashboard_init();
     csv_queue = xQueueCreate(CSV_QUEUE_LEN, sizeof(csv_msg_t));
     xTaskCreate(csv_task, "csv_sender", 2048, NULL, 5, NULL);
     xTaskCreate(setpoint_task, "setpoint", 2048, NULL, 7, NULL);
     xTaskCreatePinnedToCore(motor_task, "motor", 4096, NULL, 10, NULL, 1);
 }
-

@@ -2,11 +2,12 @@
 #include <math.h>
 #include "esp_timer.h"
 #include "freertos/task.h"
+#include "external_setpoint.h"
 
 // Define the variables here (without 'extern')
-volatile float SETPOINT_RPM_SHARED = 0;
+volatile float SETPOINT_RPM_SHARED = 0.0f;
 portMUX_TYPE setpoint_mux = portMUX_INITIALIZER_UNLOCKED;
-setpoint_mode_t current_mode = SETPOINT_MODE_UP_AND_DOWN;
+setpoint_mode_t current_mode = SETPOINT_MODE_EXTERNAL;
 // Constants used only by the setpoint logic
 #define MAX_RPM 650.0f
 #define MIN_RPM 50.0f
@@ -191,6 +192,16 @@ void setpoint_task(void *arg)
             taskEXIT_CRITICAL(&setpoint_mux);
 
             vTaskDelayUntil(&xLastWakeSine, SINE_SAMPLING_PERIOD);
+        }
+        else if (current_mode == SETPOINT_MODE_EXTERNAL) {
+
+            rpm = external_setpoint_rpm;
+
+            taskENTER_CRITICAL(&setpoint_mux);
+            SETPOINT_RPM_SHARED = rpm;
+            taskEXIT_CRITICAL(&setpoint_mux);
+
+            vTaskDelay(pdMS_TO_TICKS(20));
         }
     }
 }
